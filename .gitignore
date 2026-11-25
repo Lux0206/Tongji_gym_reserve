@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.log
+
+# 本地数据（含账号密码、邮箱授权码）
+data.db
+data.db-*
+config.json
+
+# 旧的下单脚本与旧配置（含账号密码）
+archive/
+
+# 逆向分析资料（含登录数据/前端包）
+analysis/
+
+# 个人材料，不要上传
+对话记录-*.md
+风控事件记录.md
+申诉书.md
+分析笔记.md
+.zcodeignore

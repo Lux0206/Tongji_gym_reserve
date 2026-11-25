@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同济场馆空位提醒</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">场</span>
+    <div>
+      <div class="brand-title">同济场馆空位提醒</div>
+      <div class="brand-sub">羽毛球 · 乒乓球 · 网球（只读）</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span id="statusPill" class="pill">加载中…</span>
+    <button id="pauseBtn" class="btn ghost">暂停</button>
+  </div>
+</header>
+
+<main>
+  <div class="alert dismissible" id="releaseNotice">
+    <strong>放号提醒说明：</strong>
+    每天新放号时，场馆空位信息波动较大，<b>第一次读取不会推送提醒</b>；
+    从第二次读取开始，才会按你设置的场馆、时段和场地偏好提示空缺位置。
+    <button class="alert-close" id="closeReleaseNotice" aria-label="关闭">×</button>
+  </div>
+  <div class="alert">
+    <strong>只读版说明：</strong>
+    本工具没有任何下单/支付功能，只做查询和提醒。
+    默认<b>暂停</b>，不会访问学校服务器；请先在下方勾选要跟踪的场馆，再点右上角“恢复”。
+    未勾选的场馆不会发任何请求。
+  </div>
+
+  <section class="cards">
+    <div class="card"><div class="card-k">已跟踪场馆</div><div class="card-v" id="cTracked">—</div></div>
+    <div class="card"><div class="card-k">上次扫描</div><div class="card-v" id="cLastScan">—</div></div>
+    <div class="card"><div class="card-k">下次扫描</div><div class="card-v" id="cNextScan">—</div></div>
+    <div class="card"><div class="card-k">本小时请求</div><div class="card-v" id="cBudget">—</div></div>
+    <div class="card"><div class="card-k">运行时段</div><div class="card-v" id="cHours">—</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>跟踪的场馆</h2>
+      <span class="muted">只显示已勾选的场馆；未勾选不发请求</span>
+    </div>
+    <div id="trackedVenues" class="venue-grid"></div>
+  </section>
+
+  <section class="panel" id="venueManagerPanel">
+    <div class="panel-head">
+      <h2>场馆管理</h2>
+      <div class="panel-tools">
+        <span class="muted">勾选后才开始只读跟踪</span>
+        <button class="btn primary small" id="saveVenues">保存场馆设置</button>
+      </div>
+    </div>
+    <p class="hint">每个场馆可单独设置扫描间隔、监控天数、时段和场地偏好。间隔最小 15 分钟；实际生效受全局每小时请求上限影响。</p>
+    <div id="venueGroups" class="sport-groups"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>实时空位</h2>
+      <div class="panel-tools">
+        <select id="availVenue"></select>
+        <button id="refreshAvail" class="btn small">查询</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot free"></i>空闲</span>
+      <span><i class="dot full"></i>已约满</span>
+      <span><i class="dot closed"></i>未开放</span>
+      <span><i class="dot expired"></i>已过期</span>
+      <span><i class="dot predicted"></i>历史规律：常不开放</span>
+    </div>
+    <div id="availWrap" class="avail"><div class="empty">选择已跟踪的场馆后点“查询”</div></div>
+    <div id="cellBar" class="cellbar hidden">
+      <span id="cellText"></span>
+      <button class="btn small" id="cellPrefer">加入该场馆提醒偏好</button>
+      <button class="btn small ghost" id="cellClose">取消</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>设置</h2><span class="muted">修改后点各区块的保存</span></div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="monitor">提醒</button>
+      <button class="tab" data-tab="email">邮箱</button>
+      <button class="tab" data-tab="account">账号</button>
+      <button class="tab" data-tab="system">系统</button>
+    </nav>
+
+    <div class="tabpane active" data-pane="monitor">
+      <div class="row">
+        <label>运行开始 <input type="text" id="mStart" class="tiny" placeholder="07:00"></label>
+        <label>运行结束 <input type="text" id="mEnd" class="tiny" placeholder="22:00"></label>
+        <label>每小时请求上限 <input type="number" id="mCap" min="1" max="600" step="1" class="tiny"></label>
+        <label>重复提醒冷却（分钟） <input type="number" id="mDedup" min="0" step="1" class="tiny"></label>
+      </div>
+      <div class="row checks">
+        <label class="check"><input type="checkbox" id="mAlertQuota"> 额度满时仍提醒</label>
+      </div>
+      <p class="hint">开启：额度已满或有未支付订单时，仍提醒空位（方便让搭子抢）；关闭：额度满时暂停提醒。</p>
+      <p class="hint">默认 30 分钟/场馆，最小 15 分钟；实际间隔受每小时 60 次上限约束。夜间不读取。</p>
+      <div class="actions"><button class="btn primary" id="saveMonitor">保存提醒设置</button></div>
+    </div>
+
+    <div class="tabpane" data-pane="email">
+      <div class="row">
+        <label>通知方式
+          <select id="nChannel">
+            <option value="email">邮件</option>
+            <option value="webhook">Webhook</option>
+            <option value="both">邮件 + Webhook</option>
+            <option value="none">关闭</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>SMTP 服务器 <input type="text" id="nHost" placeholder="smtp.qq.com"></label>
+        <label>端口 <input type="number" id="nPort" class="tiny" placeholder="465"></label>
+        <label class="check"><input type="checkbox" id="nSsl"> SSL</label>
+      </div>
+      <div class="row">
+        <label>发件邮箱 <input type="text" id="nUser" placeholder="你的QQ邮箱"></label>
+        <label>授权码
+          <span class="input-with-help">
+            <input type="password" id="nPass" placeholder="留空则不修改">
+            <button type="button" class="link-btn" id="authHelpBtn">如何获取？</button>
+          </span>
+        </label>
+      </div>
+      <div class="row">
+        <label>发件人 <input type="text" id="nFrom" placeholder="默认同发件邮箱"></label>
+        <label>收件邮箱 <input type="text" id="nTo" placeholder="默认同发件邮箱"></label>
+      </div>
+      <div class="row">
+        <label>Webhook 类型
+          <select id="nWebType"><option value="wecom">企业微信机器人</option><option value="json">通用 JSON</option></select>
+        </label>
+        <label>Webhook 地址 <input type="text" id="nWebUrl" placeholder="https://..."></label>
+      </div>
+      <p class="hint">QQ 邮箱需要在“设置 → 账户”里开启 SMTP 服务，并生成授权码（不是登录密码）。</p>
+      <div class="actions">
+        <button class="btn primary" id="saveEmail">保存邮箱设置</button>
+        <button class="btn ghost" id="testEmail">发送测试邮件</button>
+      </div>
+    </div>
+
+    <div class="tabpane" data-pane="account">
+      <div class="row">
+        <label>学号 / 工号 <input type="text" id="aUser" autocomplete="username"></label>
+        <label>密码 <input type="password" id="aPass" autocomplete="current-password" placeholder="留空则不修改"></label>
+      </div>
+      <p class="hint">账号只保存在本机 data.db 中，不会上传。</p>
+      <div class="actions"><button class="btn primary" id="saveAccount">保存账号</button></div>
+    </div>
+
+    <div class="tabpane" data-pane="system">
+      <div class="row checks">
+        <label class="check"><input type="checkbox" id="sSleep"> 运行期间阻止电脑睡眠</label>
+        <label class="check"><input type="checkbox" id="sAuto"> 开机自启</label>
+        <label class="check"><input type="checkbox" id="sLocal"> 新提醒时本地响一声</label>
+      </div>
+      <p class="hint">开机自启会在 Windows 启动文件夹里放一个批处理，取消勾选即可删除。阻止睡眠只在程序运行时生效。</p>
+      <div class="actions">
+        <button class="btn primary" id="saveSystem">保存系统设置</button>
+        <button class="btn ghost" id="openLogs">刷新日志</button>
+      </div>
+      <div class="row">
+        <label>网页地址 <input type="text" value="http://127.0.0.1:5000" readonly></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>日志</h2><span class="muted">最近 200 条</span></div>
+    <div id="logs" class="logs"></div>
+  </section>
+</main>
+
+<footer>同济场馆空位提醒 · 只读 · 仅在本机运行 · 配置保存在 data.db</footer>
+<div id="authHelpModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>如何获取 QQ 邮箱授权码</h3>
+      <button type="button" class="modal-close" id="authHelpClose" aria-label="关闭">×</button>
+    </div>
+    <ol class="modal-body">
+      <li>打开 <b>QQ 邮箱网页版</b> → <b>设置</b> → <b>账户</b>。</li>
+      <li>找到「POP3/IMAP/SMTP/Exchange/CardDAV/CalDAV 服务」。</li>
+      <li>开启「<b>POP3/SMTP 服务</b>」，按提示完成短信验证。</li>
+      <li>点「<b>生成授权码</b>」，复制那串 16 位授权码。</li>
+      <li>回到本页，把授权码粘贴到「授权码」输入框。</li>
+      <li>点「保存邮箱设置」，或直接点「发送测试邮件」（会自动保存）。</li>
+      <li>注意：<b>授权码不是 QQ 登录密码</b>；发件邮箱要填授权码对应的 QQ 邮箱。</li>
+    </ol>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
